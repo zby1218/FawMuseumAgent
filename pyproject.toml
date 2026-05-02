@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "faw-museum-agent"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+    "langchain-openai>=0.2",
+    "pydantic>=2.0",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+    "mem0ai>=0.1",
+    "langsmith>=0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+    "mypy>=1.9",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/faw_museum"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

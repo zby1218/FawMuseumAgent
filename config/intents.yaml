@@ -1,0 +1,66 @@
+# ============================================================
+# 博物馆讲解机器人意图配置
+# ============================================================
+
+# ============ 意图定义 ============
+intents:
+  action:
+    description: "机器人动作指令（低延迟，关键词直接拦截）"
+    keywords: ["点头", "摇头", "转身", "过来", "走过来", "停", "停下", "别动", "挥手", "招手"]
+    required_slots: []
+
+  exhibit_qa:
+    description: "展品问答"
+    keywords: ["什么", "为什么", "怎么", "如何", "介绍", "讲解", "说说", "是谁", "哪年", "多少", "历史", "特点", "原理"]
+    required_slots: []
+
+  chitchat:
+    description: "闲聊"
+    keywords: ["你好", "您好", "嗨", "你是谁", "叫什么", "名字", "谢谢", "再见", "拜拜", "帮助", "能做什么"]
+    required_slots: []
+
+  skill:
+    description: "触发技能（播放视频、导航、显示参数等）"
+    keywords: ["播放", "视频", "导航", "去", "前往", "显示", "展示", "参数", "规格", "带我"]
+    required_slots: []
+
+  image_identify:
+    description: "图像识别展品（用户上传图片或摄像头帧）"
+    keywords: ["这是什么", "这辆车", "识别", "认识", "看看这个", "图片", "照片"]
+    required_slots: []
+
+  video_understand:
+    description: "视频内容理解"
+    keywords: ["这段视频", "视频里", "看这个视频", "视频中"]
+    required_slots: []
+
+  gesture_action:
+    description: "手势动作识别（摄像头检测，系统触发）"
+    keywords: []
+    required_slots: []
+
+  qr_scan:
+    description: "扫码请求"
+    keywords: ["扫码", "扫一扫", "二维码"]
+    required_slots: []
+
+# ============ 动作关键词（第一级快速拦截，< 1ms）============
+action_patterns:
+  nod: ["点头", "点点头"]
+  shake: ["摇头", "摇摇头"]
+  turn: ["转身", "转过去", "转过来"]
+  come_here: ["过来", "来这里", "走过来", "来一下"]
+  stop: ["停", "停下", "别动", "暂停"]
+  wave: ["挥手", "招手"]
+
+# ============ 置信度配置 ============
+confidence:
+  keyword_match: 0.6
+  llm_threshold: 0.75
+
+# ============ 槽位名称（用于提示） ============
+slot_names:
+  query_content: "查询内容"
+  skill_name: "技能名称"
+  destination: "目的地"
+  exhibit_id: "展品编号"
