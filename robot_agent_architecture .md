@@ -1,6 +1,6 @@
 # Robot Voice Agent — LangGraph 架构文档
 
-> 版本：v0.5  
+> 版本：v0.6  
 > LangGraph：1.1.10  
 > 状态：架构设计阶段，暂不接入 ASR/TTS，优先实现核心 graph 逻辑并支持流式输出测试
 
@@ -353,13 +353,31 @@ BLOCK_RESPONSES = {
 **输入**：`messages` 中的最新用户指令  
 **输出**：写入 `skill_sequence`，`current_step=0`
 
+#### System prompt 注入可用 skill 列表
+
+`SUPPORTED_SKILLS` 在构建 prompt 时动态注入，让 LLM 从源头就知道有哪些选项，大幅减少幻觉。dispatch 里的校验只作为最后一道保险，不是主要防线。
+
+```python
+# nodes/intent.py
+def build_intent_prompt(supported_skills: set[str]) -> str:
+    skill_list = "\n".join(f"- {s}" for s in sorted(supported_skills))
+    return f"""
+你需要将用户指令拆解为技能序列。
+当前机器人支持的技能如下：
+{skill_list}
+
+只能使用以上技能，不得创造新的技能名称。
+输出格式为 JSON 数组...
+"""
+```
+
 **示例**：
 ```
 输入："去厨房拿杯子放到桌上"
 输出：[
-  {skill: navigate, params: {destination: 厨房}, description: 导航到厨房},
-  {skill: grasp,    params: {object: 杯子},      description: 抓取杯子},
-  {skill: place,    params: {location: 桌上},    description: 放置到桌上},
+  {skill: "navigate", params: {destination: "厨房"}, description: "导航到厨房"},
+  {skill: "grasp",    params: {object: "杯子"},      description: "抓取杯子"},
+  {skill: "place",    params: {location: "桌上"},    description: "放置到桌上"},
 ]
 ```
 
@@ -413,6 +431,25 @@ monitor 节点（dispatch 之后）
   - 成功 + 全部完成  → execution_status=idle → response_text="任务完成"
   - 失败             → execution_status=idle → response_text="执行失败：原因"
 ```
+
+#### 未知 skill 的错误处理
+
+dispatch 遇到 `SUPPORTED_SKILLS` 中不存在的 skill 时，不抛 Python 异常，而是将结构化错误写入 `last_ros_result`，由 monitor 节点回传给 LLM，让 LLM 在下一轮据此自我纠正：
+
+```python
+# nodes/dispatch.py
+if skill_step["skill"] not in SUPPORTED_SKILLS:
+    return {
+        "last_ros_result": {
+            "success": False,
+            "error": f"skill '{skill_step['skill']}' 不存在，"
+                     f"可用的 skill: {sorted(SUPPORTED_SKILLS)}，"
+                     f"请重新规划任务"
+        }
+    }
+```
+
+这样 LLM 收到的是可读的纠错信息，而不是 Python traceback。intent_parse 的 prompt 注入已经是第一道防线，dispatch 校验只是兜底。
 
 **注意**：`interrupt()` 挂起的是 invoke 1，不阻塞进程。挂起期间收到的新 ASR 输入作为独立的 invoke 2 进来，在 State Guard 被 discard，不影响 invoke 1 的恢复。
 
