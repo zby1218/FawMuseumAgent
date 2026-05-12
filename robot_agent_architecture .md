@@ -1,6 +1,6 @@
 # Robot Voice Agent — LangGraph 架构文档
 
-> 版本：v0.7  
+> 版本：v0.8  
 > LangGraph：1.1.10  
 > 状态：架构设计阶段，暂不接入 ASR/TTS，优先实现核心 graph 逻辑并支持流式输出测试
 
@@ -55,9 +55,8 @@ robot_agent/
 │   ├── chitchat.py   # 模块4：闲聊
 │   ├── knowledge.py  # 模块5：知识问答（RAG）
 │   ├── intent.py     # 模块6：意图解析与槽位提取
-│   ├── validate.py   # 模块7：槽位校验
-│   ├── confirm.py    # 模块8：高风险确认（HITL）
-│   ├── dispatch.py   # 模块9：ROS 指令分发
+│   ├── confirm.py    # 模块7：高风险确认（HITL）
+│   ├── dispatch.py   # 模块8：ROS 指令分发
 │   └── mute.py       # 模块10：静默控制
 ├── tools/
 │   ├── ros_tools.py  # ROS 调用封装（普通 Python，非 LangChain tool）
@@ -116,13 +115,11 @@ class RobotState(TypedDict):
     # 写入：mute 节点（True）、wake_up 节点（False）
     # 读取：state_guard
 
-    execution_status: Literal["idle", "executing", "waiting_input", "waiting_confirm"]
+    execution_status: Literal["idle", "executing", "waiting_confirm"]
     # idle            — 空闲，正常接受输入
     # executing       — 正在执行 skill，新输入全部 discard
-    # waiting_input   — 槽位不全，等待用户补充信息（validate 节点写入）
     # waiting_confirm — 高风险操作，等待用户二次确认（confirm 节点写入）
-    # 写入：dispatch（executing）、validate（waiting_input）、
-    #       confirm（waiting_confirm）、monitor/ros_callback（idle）
+    # 写入：dispatch（executing）、confirm（waiting_confirm）、monitor/ros_callback（idle）
     # 读取：state_guard（单字段完成所有路由判断）
 
     current_task_type: Optional[str]
@@ -136,7 +133,7 @@ class RobotState(TypedDict):
     # 读取：content_filter 条件边（放行后按此值路由到对应业务节点）
     # 重置：每次 invoke 开始时清空
 
-    # ── 任务规划（intent_parse 写，dispatch/validate 读）───
+    # ── 任务规划（intent_parse 写，dispatch 读）───
     skill_sequence: list[SkillStep]
     # 写入：intent_parse 节点
     # 读取：validate、dispatch
@@ -167,10 +164,10 @@ class RobotState(TypedDict):
 | `robot_id` | 初始化 | dispatch、checkpointer |
 | `messages` | 所有节点 | router、chitchat、knowledge、intent_parse |
 | `silent_mode` | mute、wake_up | state_guard |
-| `execution_status` | dispatch（executing）、validate（waiting_input）、confirm（waiting_confirm）、ros_callback（idle） | state_guard |
+| `execution_status` | dispatch（executing）、confirm（waiting_confirm）、ros_callback（idle） | state_guard |
 | `current_task_type` | dispatch（值由 SUPPORTED_SKILLS 约束） | state_guard |
 | `intent_type` | router | content_filter 条件边 |
-| `skill_sequence` | intent_parse | validate、dispatch |
+| `skill_sequence` | intent_parse | dispatch |
 | `current_step` | dispatch、intent_parse | dispatch |
 | `last_ros_result` | ros_callback | monitor |
 | `response_text` | 所有有输出节点 | streaming 层 |
@@ -212,7 +209,6 @@ def create_initial_state(robot_id: str, user_input: str) -> RobotState:
 | `silent_mode=True` + 检测到唤醒词 | `wake_up` | 关键词匹配，不调 LLM |
 | `silent_mode=True` + 无唤醒词 | `discard` | 静默期间丢弃所有输入 |
 | `execution_status=executing` | `discard` | 执行动作期间丢弃所有输入，等待 ROS 完成 |
-| `execution_status=waiting_input` | `intent_parse` | 用户补充了槽位信息，重新解析 |
 | `execution_status=waiting_confirm` | `handle_confirmation` | 用户确认/拒绝高风险操作 |
 | `execution_status=idle` | `router` | 正常意图识别流程 |
 
@@ -348,7 +344,7 @@ BLOCK_RESPONSES = {
 
 ### 模块 6：意图解析（intent.py）
 
-**职责**：调 LLM 将用户指令拆解为 `skill_sequence`，提取每个 skill 的槽位参数。
+**职责**：调 LLM 将用户指令拆解为 `skill_sequence`，从自然语言中提取每个 skill 的参数值。提取到什么传什么，不校验完整性——参数缺失由 ROS/VLA 执行侧处理。
 
 **输入**：`messages` 中的最新用户指令  
 **输出**：写入 `skill_sequence`，`current_step=0`
@@ -383,17 +379,7 @@ def build_intent_prompt(supported_skills: set[str]) -> str:
 
 ---
 
-### 模块 7：槽位校验（validate.py）
-
-**职责**：检查 `skill_sequence` 中每个 skill 的必要参数是否完整，不调 LLM，纯规则校验。
-
-**条件边输出**：
-- 缺少必要槽位 → 生成追问文本，写入 `response_text`，graph 结束（等下一轮补充）
-- 校验通过 → `confirm`
-
----
-
-### 模块 8：高风险确认（confirm.py）
+### 模块 7：高风险确认（confirm.py）
 
 **职责**：判断当前 `skill_sequence` 是否属于高风险操作，若是则暂停等待用户确认。
 
@@ -405,7 +391,7 @@ def build_intent_prompt(supported_skills: set[str]) -> str:
 
 ---
 
-### 模块 9：ROS 指令分发（dispatch.py）
+### 模块 8：ROS 指令分发（dispatch.py）
 
 **职责**：取 `skill_sequence[current_step]`，调对应 ROS tool，设置执行状态，返回即时回复，然后用 `interrupt()` 挂起 graph 等待 ROS 回调。
 
@@ -509,7 +495,7 @@ async def ros_action_and_resume(graph, config, skill: str, params: dict):
 
 ---
 
-### 模块 10：静默控制（mute.py）
+### 模块 9：静默控制（mute.py）
 
 **职责**：处理进入/退出静默模式。
 

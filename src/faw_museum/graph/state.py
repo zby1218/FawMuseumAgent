@@ -19,17 +19,16 @@ class RobotState(TypedDict):
 
     # ── 系统状态（State Guard 读，各执行节点写）────────────
     silent_mode: bool
-    execution_status: Literal["idle", "executing", "waiting_input", "waiting_confirm"]
+    execution_status: Literal["idle", "executing", "waiting_confirm"]
     # idle            — 空闲，正常接受输入
     # executing       — 正在执行 skill，新输入全部 discard
-    # waiting_input   — 槽位不全，等待用户补充信息
     # waiting_confirm — 高风险操作，等待用户二次确认
     current_task_type: Optional[str]  # 合法值与 SkillStep.skill 一致，由 dispatch 维护
 
     # ── 意图分类（Router 写，Content Filter 条件边读）────
     intent_type: Optional[Literal["chitchat", "knowledge", "action", "mute"]]
 
-    # ── 任务规划（intent_parse 写，dispatch/validate 读）───
+    # ── 任务规划（intent_parse 写，dispatch 读）───
     skill_sequence: list[SkillStep]
     current_step: int
 
