@@ -1,0 +1,14 @@
+# LLM 后端配置
+#
+# provider 支持以下值：
+#   llama_cpp_qwen35  — llama-cpp-python JamePeng fork，Qwen35ChatHandler，进程内加载
+#   openai_compatible — 任意 OpenAI 兼容接口（Ollama / llama-cpp server / 实际 OpenAI）
+
+provider: llama_cpp_qwen35
+model_path: /home/zhangboyu/project/sherpa/models/llm/qwen3_5-2B/Qwen3.5-2B-UD-Q4_K_XL.gguf
+mmproj_path: /home/zhangboyu/project/sherpa/models/llm/qwen3_5-2B/mmproj-F16.gguf
+n_ctx: 2048
+n_threads: 16
+n_gpu_layers: 0
+temperature: 0.7
+max_tokens: 512
