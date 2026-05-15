@@ -26,7 +26,33 @@ Before implementing:
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
-## 3. Surgical Changes
+## 3. File Headers
+
+**Every new file must begin with a header comment describing its role.**
+
+The header should answer three questions:
+- **What** does this file do? (its responsibility)
+- **Who** does it serve? (callers, consumers, or dependent modules)
+- **What it is NOT** responsible for, if the boundary is non-obvious.
+
+Format (adapt comment syntax to the language):
+
+```python
+# ============================================================
+# [filename]
+#
+# Responsibility: <one or two sentences on what this file does>
+# Serves:         <who calls/imports/depends on this>
+# Out of scope:   <optional — clarify what this file does NOT do>
+# ============================================================
+```
+
+Rules:
+- Write the header **before** writing any code.
+- Keep it to 3–5 lines. If you need more, the file probably does too much.
+- If you're editing an existing file that lacks a header, add one — this is the one exception to the "don't improve adjacent code" rule.
+
+## 4. Surgical Changes
 
 **Touch only what you must. Clean up only your own mess.**
 
@@ -42,7 +68,7 @@ When your changes create orphans:
 
 The test: Every changed line should trace directly to the user's request.
 
-## 4. Goal-Driven Execution
+## 5. Goal-Driven Execution
 
 **Define success criteria. Loop until verified.**
 

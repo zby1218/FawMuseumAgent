@@ -10,5 +10,28 @@ mmproj_path: /home/zhangboyu/project/sherpa/models/llm/qwen3_5-2B/mmproj-F16.ggu
 n_ctx: 2048
 n_threads: 16
 n_gpu_layers: 0
-temperature: 0.7
-max_tokens: 512
+
+# ── 各节点推理参数 ────────────────────────────────────────────────
+# 模型实例只加载一次，temperature/max_tokens 按节点任务类型分开设置。
+# 节点代码通过 load_llm_config()["inference"]["<profile>"] 读取，不硬编码。
+inference:
+
+  classify:
+    # 意图分类（router）：输出确定，不需要创意性，温度为 0
+    temperature: 0.0
+    max_tokens: 128
+
+  extract:
+    # 结构化提取（intent_parse）：输出 JSON，低温度保证格式稳定
+    temperature: 0.1
+    max_tokens: 256
+
+  factual:
+    # 知识问答（knowledge）：事实性回答，温度适中避免编造
+    temperature: 0.3
+    max_tokens: 512
+
+  generate:
+    # 闲聊生成（chitchat）：自然口语，允许一定随机性
+    temperature: 0.7
+    max_tokens: 512

@@ -49,8 +49,8 @@ class _LlamaCppQwen35(BaseChatModel):
         llama_msgs = _to_llama_messages(messages)
         resp = self._llm.create_chat_completion(
             messages=llama_msgs,
-            temperature=self._temperature,
-            max_tokens=self._max_tokens,
+            temperature=kwargs.get("temperature", self._temperature),
+            max_tokens=kwargs.get("max_tokens", self._max_tokens),
             stream=False,
         )
         raw = resp["choices"][0]["message"]["content"] or ""
@@ -70,8 +70,8 @@ class _LlamaCppQwen35(BaseChatModel):
 
         for chunk in self._llm.create_chat_completion(
             messages=llama_msgs,
-            temperature=self._temperature,
-            max_tokens=self._max_tokens,
+            temperature=kwargs.get("temperature", self._temperature),
+            max_tokens=kwargs.get("max_tokens", self._max_tokens),
             stream=True,
         ):
             token = chunk.get("choices", [{}])[0].get("delta", {}).get("content") or ""
